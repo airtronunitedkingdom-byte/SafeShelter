@@ -83,4 +83,24 @@ z=z.replace('addPreferencesFromResource(R.xml.preferences_settings);', '''addPre
         getPreferenceScreen().addPreference(info);''')
 settings.write_text(z)
 
+
+# Branded vector launcher icon: self-contained, no external asset downloads.
+icon_dir=app/"src/main/res/drawable"
+icon_dir.mkdir(parents=True,exist_ok=True)
+(icon_dir/"virtual_arena_icon.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M0,0h108v108h-108z"/>
+    <path android:fillColor="#5630D9" android:pathData="M54,9 L92,25 L88,66 Q83,86 54,101 Q25,86 20,66 L16,25 Z"/>
+    <path android:fillColor="#20115E" android:pathData="M54,18 L83,30 L79,64 Q75,79 54,91 Q33,79 29,64 L25,30 Z"/>
+    <path android:fillColor="#D9CEFF" android:pathData="M72,35 Q59,25 44,33 Q29,41 40,52 L65,63 Q71,67 63,73 Q53,80 38,68 L33,77 Q53,92 72,80 Q87,67 73,56 L48,45 Q42,41 50,38 Q59,34 68,44 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M54,48 a6,6 0,1 1,0 12 a6,6 0,1 1,0 -12 M52,57h4l3,13h-10z"/>
+</vector>
+""")
+s=manifest.read_text()
+s=re.sub(r'android:icon="@(?:mipmap|drawable)/[^"]+"',
+         'android:icon="@drawable/virtual_arena_icon"',s,count=1)
+manifest.write_text(s)
+
 print("Virtual Arena patch applied")
