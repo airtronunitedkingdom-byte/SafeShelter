@@ -16,7 +16,7 @@ jobs:
           java-version: '17'
     
       - name: Fetch licensed Shelter base
-        run: git clone --depth 1 https://github.com/PeterCxy/Shelter.git upstream
+        run: git clone --depth 1 --recurse-submodules https://github.com/PeterCxy/Shelter.git upstream
       - name: Apply Virtual Arena adaptations
         run: python3 scripts/brand.py
       - name: Build installable debug APK
