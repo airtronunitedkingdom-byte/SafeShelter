@@ -14,7 +14,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+    
       - name: Fetch licensed Shelter base
         run: git clone --depth 1 https://github.com/PeterCxy/Shelter.git upstream
       - name: Apply Virtual Arena adaptations
