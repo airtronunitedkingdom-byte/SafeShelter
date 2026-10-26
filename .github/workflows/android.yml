@@ -15,8 +15,13 @@ jobs:
           distribution: temurin
           java-version: '17'
     
-      - name: Fetch licensed Shelter base
-        run: git clone --depth 1 --recurse-submodules https://github.com/PeterCxy/Shelter.git upstream
+      - name: Fetch pinned Shelter source
+        run: |
+          git clone https://github.com/PeterCxy/Shelter.git upstream
+          cd upstream
+          git checkout --detach 0afac87b2dc34e58652d6bb3cebb61b1baaf1b98
+          git submodule update --init --recursive
+          test "$(git rev-parse HEAD)" = "0afac87b2dc34e58652d6bb3cebb61b1baaf1b98"
       - name: Apply Virtual Arena adaptations
         run: python3 scripts/brand.py
       - name: Build installable debug APK
