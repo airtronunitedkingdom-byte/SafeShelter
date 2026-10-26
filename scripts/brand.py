@@ -70,5 +70,17 @@ public class VirtualArenaInfoActivity extends Activity {
     }
 }
 """)
-# Note activity must be reachable: add an info menu item through setting preference XML at runtime instead if simpler; create launcher shortcut activity alias? use launcher intent for info -> creates second icon unwanted. leave class page accessible using settings modification separately.
+settings=root/"app/src/main/java/net/typeblog/shelter/ui/SettingsFragment.java"
+z=settings.read_text()
+z=z.replace('addPreferencesFromResource(R.xml.preferences_settings);', '''addPreferencesFromResource(R.xml.preferences_settings);
+        androidx.preference.Preference info = new androidx.preference.Preference(requireContext());
+        info.setTitle("About & Privacy Policy");
+        info.setSummary("Virtual Arena • Version 1.0.0 • Privacy");
+        info.setOnPreferenceClickListener(p -> {
+            startActivity(new Intent(requireContext(), VirtualArenaInfoActivity.class));
+            return true;
+        });
+        getPreferenceScreen().addPreference(info);''')
+settings.write_text(z)
+
 print("Virtual Arena patch applied")
