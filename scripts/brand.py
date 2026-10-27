@@ -104,3 +104,88 @@ s=re.sub(r'android:icon="@(?:mipmap|drawable)/[^"]+"',
 manifest.write_text(s)
 
 print("Virtual Arena patch applied")
+
+
+# APK installation reliability fixes for Android 10+.
+# Upstream swallowed stream errors and committed incomplete sessions.
+dummy=app/"src/main/java/net/typeblog/shelter/ui/DummyActivity.java"
+d=dummy.read_text()
+d=d.replace('''            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE, uri);''','''            } catch (Exception e) {
+                android.util.Log.e("VirtualArenaInstall", "Could not start APK installation", e);
+                Toast.makeText(this, "APK install failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                appInstallFinished(Activity.RESULT_CANCELED);
+            }
+        } else {
+            Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE, uri);''')
+d=d.replace('''                default:
+                    appInstallFinished(Activity.RESULT_CANCELED);
+                    break;
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult''','''                default:
+                    String message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+                    if (message == null || message.isEmpty()) message = "Android rejected the APK (status " + status + ")";
+                    android.util.Log.e("VirtualArenaInstall", message);
+                    Toast.makeText(this, "Installation failed: " + message, Toast.LENGTH_LONG).show();
+                    appInstallFinished(Activity.RESULT_CANCELED);
+                    break;
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult''')
+start=d.index('    private void actionInstallPackageQ(Uri uri, String[] split_apks) throws IOException {')
+end=d.index('    private void actionUninstallPackage()',start)
+replacement='''    private void actionInstallPackageQ(Uri uri, String[] split_apks) throws IOException {
+        if (uri == null) throw new IOException("No APK file was provided");
+        PackageInstaller pi = getPackageManager().getPackageInstaller();
+        PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
+                PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        int sessionId = pi.createSession(params);
+        // Stage the APKs in the background, without relying on InputStream.available()
+        // (which is not a reliable APK file length for forwarded content URIs).
+        new Thread(() -> {
+            try (PackageInstaller.Session session = pi.openSession(sessionId)) {
+                ArrayList<Uri> uris = new ArrayList<>();
+                uris.add(uri);
+                if (split_apks != null) {
+                    for (String apk : split_apks) uris.add(Uri.fromFile(new File(apk)));
+                }
+                for (int i = 0; i < uris.size(); i++) {
+                    try (InputStream input = getContentResolver().openInputStream(uris.get(i))) {
+                        if (input == null) throw new IOException("Cannot read APK " + (i + 1));
+                        try (OutputStream output = session.openWrite("apk_" + i + ".apk", 0, -1)) {
+                            Utility.pipe(input, output);
+                            session.fsync(output);
+                        }
+                    }
+                }
+                Intent callback = new Intent(this, DummyActivity.class);
+                callback.setAction(PACKAGEINSTALLER_CALLBACK);
+                callback.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                PendingIntent pending = PendingIntent.getActivity(this, sessionId, callback,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+                session.commit(pending.getIntentSender());
+            } catch (Exception e) {
+                android.util.Log.e("VirtualArenaInstall", "APK staging failed", e);
+                try { pi.abandonSession(sessionId); } catch (Exception ignored) {}
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "APK install failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    appInstallFinished(Activity.RESULT_CANCELED);
+                });
+            }
+        }).start();
+    }
+
+'''
+d=d[:start]+replacement+d[end:]
+dummy.write_text(d)
+print("Virtual Arena APK installation reliability patch applied")
