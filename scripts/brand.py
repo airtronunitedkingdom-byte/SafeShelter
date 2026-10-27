@@ -189,3 +189,79 @@ replacement='''    private void actionInstallPackageQ(Uri uri, String[] split_ap
 d=d[:start]+replacement+d[end:]
 dummy.write_text(d)
 print("Virtual Arena APK installation reliability patch applied")
+
+
+# User-exportable installation diagnostic TXT, with no network collection.
+d=dummy.read_text()
+d=d.replace('''    private static final int REQUEST_INSTALL_PACKAGE = 1;''','''    private static final int REQUEST_INSTALL_PACKAGE = 1;
+    private static final int REQUEST_SAVE_INSTALL_LOG = 98;
+    private String mInstallDiagnostic = "";''')
+d=d.replace('''        if (requestCode == REQUEST_INSTALL_PACKAGE) {
+            appInstallFinished(resultCode);
+        }
+    }''','''        if (requestCode == REQUEST_INSTALL_PACKAGE) {
+            appInstallFinished(resultCode);
+        } else if (requestCode == REQUEST_SAVE_INSTALL_LOG) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                try (OutputStream out = getContentResolver().openOutputStream(data.getData())) {
+                    if (out == null) throw new IOException("Cannot open TXT destination");
+                    out.write(mInstallDiagnostic.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    Toast.makeText(this, "Installation log saved", Toast.LENGTH_LONG).show();
+                } catch (Exception e) {
+                    Toast.makeText(this, "Log export failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }
+        }
+    }''')
+d=d.replace('''                    Toast.makeText(this, "Installation failed: " + message, Toast.LENGTH_LONG).show();
+                    appInstallFinished(Activity.RESULT_CANCELED);''','''                    showInstallDiagnostic("PackageInstaller status=" + status
+                            + "\\nMessage=" + message
+                            + "\\nLegacy status=" + intent.getIntExtra(PackageInstaller.EXTRA_LEGACY_STATUS, 0));
+                    appInstallFinished(Activity.RESULT_CANCELED);''')
+d=d.replace('''                Toast.makeText(this, "APK install failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                appInstallFinished(Activity.RESULT_CANCELED);''','''                showInstallDiagnostic("Install start exception: " + android.util.Log.getStackTraceString(e));
+                appInstallFinished(Activity.RESULT_CANCELED);''')
+d=d.replace('''                    Toast.makeText(this, "APK install failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    appInstallFinished(Activity.RESULT_CANCELED);''','''                    showInstallDiagnostic("APK staging exception: " + android.util.Log.getStackTraceString(e));
+                    appInstallFinished(Activity.RESULT_CANCELED);''')
+anchor='''    private void actionUninstallPackage() {'''
+method='''    private void showInstallDiagnostic(String detail) {
+        mInstallDiagnostic = "Virtual Arena APK installation diagnostic\\\\n"
+                + "Android SDK: " + Build.VERSION.SDK_INT + "\\\\n"
+                + "Android release: " + Build.VERSION.RELEASE + "\\\\n"
+                + "Virtual Arena package: " + getPackageName() + "\\\\n"
+                + "Work profile owner: " + mIsProfileOwner + "\\\\n"
+                + "Time: " + new java.util.Date() + "\\\\n"
+                + detail + "\\\\n";
+        // Save across Activity completion so the log is still available after a failed install.
+        getSharedPreferences("va_install_diagnostics", MODE_PRIVATE).edit()
+                .putString("last_failure", mInstallDiagnostic).apply();
+        new AlertDialog.Builder(this)
+                .setTitle("APK installation failed")
+                .setMessage(detail)
+                .setPositiveButton("Save TXT log", (dialog, which) -> {
+                    Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    save.addCategory(Intent.CATEGORY_OPENABLE);
+                    save.setType("text/plain");
+                    save.putExtra(Intent.EXTRA_TITLE, "VirtualArena-Install-Log.txt");
+                    startActivityForResult(save, REQUEST_SAVE_INSTALL_LOG);
+                })
+                .setNegativeButton("Close", (dialog, which) -> {})
+                .show();
+    }
+
+'''
+d=d.replace(anchor,method+anchor)
+# The result callback currently finishes the activity immediately. Keep it alive for TXT export.
+d=d.replace('''        finish();
+    }
+
+    private void actionUnfreezeAndLaunch()''','''        if (resultCode == Activity.RESULT_OK) finish();
+    }
+
+    private void actionUnfreezeAndLaunch()''')
+# Ensure escaped newlines are Java escapes, not literal line breaks in generated source.
+d=d.replace('''"Virtual Arena APK installation diagnostic\\\\n"''','''"Virtual Arena APK installation diagnostic\\n"''')
+d=d.replace(''' + "\\\\n"''',''' + "\\n"''')
+dummy.write_text(d)
+print("Virtual Arena install TXT diagnostics enabled")
