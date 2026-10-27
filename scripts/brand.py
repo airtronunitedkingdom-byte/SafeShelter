@@ -216,7 +216,7 @@ d=d.replace('''        if (requestCode == REQUEST_INSTALL_PACKAGE) {
 d=d.replace('''                    Toast.makeText(this, "Installation failed: " + message, Toast.LENGTH_LONG).show();
                     appInstallFinished(Activity.RESULT_CANCELED);''','''                    showInstallDiagnostic("PackageInstaller status=" + status
                             + "\\nMessage=" + message
-                            + "\\nLegacy status=" + intent.getIntExtra(PackageInstaller.EXTRA_LEGACY_STATUS, 0));
+                            + "\\nLegacy status=" + intent.getIntExtra("android.content.pm.extra.LEGACY_STATUS", 0));
                     appInstallFinished(Activity.RESULT_CANCELED);''')
 d=d.replace('''                Toast.makeText(this, "APK install failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 appInstallFinished(Activity.RESULT_CANCELED);''','''                showInstallDiagnostic("Install start exception: " + android.util.Log.getStackTraceString(e));
